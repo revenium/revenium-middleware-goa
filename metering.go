@@ -120,7 +120,12 @@ func (m *Meter) LookupTrace(runID string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return v.(string), true
+	traceID, ok := v.(string)
+	if !ok {
+		m.logger.Warn("invalid trace type in map for runID=%s", runID)
+		return "", false
+	}
+	return traceID, true
 }
 
 // UnregisterTrace removes the trace mapping for a completed run.
@@ -170,6 +175,11 @@ func (m *Meter) SendAsync(_ context.Context, payload *MeteringPayload) {
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				m.logger.Error("panic in metering send: %v", r)
+			}
+		}()
 		// Use a detached context with a generous timeout so metering is not
 		// canceled when the caller's request context ends.
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -233,7 +243,10 @@ func (m *Meter) send(ctx context.Context, url string, body []byte) error {
 		return newNetworkError("request failed", err)
 	}
 	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		m.logger.Warn("failed to read metering response body: %v", err)
+	}
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil

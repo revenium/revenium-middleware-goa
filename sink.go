@@ -6,6 +6,9 @@ import (
 	"goa.design/goa-ai/runtime/agent/stream"
 )
 
+// Compile-time assertion that MeteringSink implements stream.Sink.
+var _ stream.Sink = (*MeteringSink)(nil)
+
 // MeteringSink wraps a stream.Sink to observe tool and workflow events for metering.
 type MeteringSink struct {
 	// Inner is the wrapped sink.
@@ -16,6 +19,11 @@ type MeteringSink struct {
 }
 
 func (s *MeteringSink) Send(ctx context.Context, event stream.Event) error {
+	// Skip metering if Meter is not configured
+	if s.Meter == nil {
+		return s.Inner.Send(ctx, event)
+	}
+
 	switch e := event.(type) {
 	case stream.ToolStart:
 		s.Meter.logger.Debug("tool start: %s (call_id=%s)", e.Data.ToolName, e.Data.ToolCallID)
@@ -46,6 +54,9 @@ func (s *MeteringSink) Send(ctx context.Context, event stream.Event) error {
 	case stream.Usage:
 		s.Meter.logger.Debug("usage: model=%s input=%d output=%d total=%d",
 			e.Data.Model, e.Data.InputTokens, e.Data.OutputTokens, e.Data.TotalTokens)
+
+	default:
+		// Unknown event types are passed through without logging to avoid noise
 	}
 
 	return s.Inner.Send(ctx, event)

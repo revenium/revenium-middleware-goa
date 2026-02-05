@@ -205,6 +205,10 @@ type inputMessage struct {
 // populatePromptFields extracts prompt data from the model request and response
 // and sets the corresponding fields on the metering payload.
 func populatePromptFields(payload *MeteringPayload, req *model.Request, responseContent []model.Message) {
+	if req == nil {
+		return
+	}
+
 	var systemParts []string
 	var inputMsgs []inputMessage
 

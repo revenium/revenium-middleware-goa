@@ -18,7 +18,7 @@ func CompositeSquadName(squads ...string) string {
 
 // ResolveSquad returns the configured squad override, or auto-detects from the agent ID.
 func ResolveSquad(cfg *Config, agentID string) string {
-	if cfg.Squad != "" {
+	if cfg != nil && cfg.Squad != "" {
 		return cfg.Squad
 	}
 	return DetectSquad(agentID)

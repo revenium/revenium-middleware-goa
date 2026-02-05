@@ -30,11 +30,17 @@ type TraceContext struct {
 }
 
 // WithTraceContext stores a TraceContext in the context.
+// A shallow copy is made to avoid mutating the input struct.
 func WithTraceContext(ctx context.Context, tc *TraceContext) context.Context {
-	if tc.TraceID == "" {
-		tc.TraceID = uuid.New().String()
+	if tc == nil {
+		tc = &TraceContext{}
 	}
-	return context.WithValue(ctx, contextKey{}, tc)
+	// Create a shallow copy to avoid mutating the caller's struct
+	tcCopy := *tc
+	if tcCopy.TraceID == "" {
+		tcCopy.TraceID = uuid.New().String()
+	}
+	return context.WithValue(ctx, contextKey{}, &tcCopy)
 }
 
 // GetTraceContext retrieves the TraceContext from the context, or nil if not set.
