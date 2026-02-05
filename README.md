@@ -2,6 +2,20 @@
 
 Metering middleware for the [goa-ai](https://goa.design/goa-ai/) agent framework. Captures LLM completion metrics (tokens, timing, model) and agent activity (tool calls, workflow phases) and sends them asynchronously to the Revenium metering API.
 
+## Installation
+
+```bash
+go get github.com/revenium/revenium-middleware-goa
+```
+
+Then import it in your Go code:
+
+```go
+import (
+    revenium "github.com/revenium/revenium-middleware-goa"
+)
+```
+
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -32,7 +46,7 @@ go run ./main.go
 ### 1. Create a Meter
 
 ```go
-import "quickstart/revenium"
+import revenium "github.com/revenium/revenium-middleware-goa"
 
 meter, err := revenium.NewMeter(
     revenium.WithAPIKey(os.Getenv("REVENIUM_API_KEY")),
