@@ -33,7 +33,7 @@ func (c *meteringClient) Complete(ctx context.Context, req *model.Request) (*mod
 
 	// squad := ResolveSquad(c.meter.cfg, c.agentID)
 	payload := &MeteringPayload{
-		Model:               c.resolveModel(req),
+		Model:               resp.Usage.Model,
 		InputTokenCount:     resp.Usage.InputTokens,
 		OutputTokenCount:    resp.Usage.OutputTokens,
 		TotalTokenCount:     resp.Usage.InputTokens + resp.Usage.OutputTokens,
@@ -122,6 +122,10 @@ func (s *meteringStreamer) Recv() (model.Chunk, error) {
 		s.usage.InputTokens += chunk.UsageDelta.InputTokens
 		s.usage.OutputTokens += chunk.UsageDelta.OutputTokens
 		s.usage.TotalTokens += chunk.UsageDelta.TotalTokens
+		s.usage.CacheReadTokens += chunk.UsageDelta.CacheReadTokens
+		s.usage.CacheWriteTokens += chunk.UsageDelta.CacheWriteTokens
+		s.usage.Model = chunk.UsageDelta.Model
+		s.usage.ModelClass = chunk.UsageDelta.ModelClass
 	}
 	if chunk.StopReason != "" {
 		s.stopReason = chunk.StopReason
@@ -140,7 +144,7 @@ func (s *meteringStreamer) Close() error {
 	if s.usage.InputTokens > 0 || s.usage.OutputTokens > 0 {
 		// squad := ResolveSquad(s.meter.cfg, s.agentID)
 		payload := &MeteringPayload{
-			Model:               s.modelID,
+			Model:               s.usage.Model,
 			InputTokenCount:     s.usage.InputTokens,
 			OutputTokenCount:    s.usage.OutputTokens,
 			TotalTokenCount:     s.usage.InputTokens + s.usage.OutputTokens,
@@ -155,6 +159,8 @@ func (s *meteringStreamer) Close() error {
 			Agent:               s.agentID,
 			// SquadID:             squad,
 			// SquadName:           squad,
+			CacheReadTokenCount:     s.usage.CacheReadTokens,
+			CacheCreationTokenCount: s.usage.CacheWriteTokens,
 		}
 
 		if tc := GetTraceContext(s.ctx); tc != nil {
