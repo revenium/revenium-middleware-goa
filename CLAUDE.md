@@ -68,7 +68,7 @@ The Meter maintains a trace registry (`sync.Map`) that maps RunIDs to TraceIDs f
 
 1. Programmatic options (highest)
 2. Environment variables (`REVENIUM_API_KEY`, `REVENIUM_METERING_BASE_URL`, etc.)
-3. Defaults (`https://api.revenium.io`)
+3. Defaults (`https://api.revenium.ai`)
 
 ## Environment Variables
 
