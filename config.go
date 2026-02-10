@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://api.revenium.io"
+	defaultBaseURL = "https://api.revenium.ai"
 	apiKeyPrefix   = "hak_"
 )
 
@@ -16,7 +16,7 @@ type Config struct {
 	// APIKey is the Revenium API key (required, must start with "hak_").
 	APIKey string
 
-	// BaseURL is the Revenium API base URL. Defaults to "https://api.revenium.io".
+	// BaseURL is the Revenium API base URL. Defaults to "https://api.revenium.ai".
 	BaseURL string
 
 	// Squad is an optional override for the squad field. When empty, the squad

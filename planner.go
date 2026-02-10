@@ -27,10 +27,6 @@ type MeteringPlanner struct {
 	// If empty, defaults to "unknown".
 	Provider string
 
-	// ModelName is the actual model name (e.g., "gpt-4o") used for metering.
-	// If empty, falls back to the runtime registry key and then req.Model.
-	ModelName string
-
 	// CapturePrompts enables capturing system prompts, input messages, and
 	// output responses in metering payloads. Disabled by default since
 	// prompts may contain sensitive data.
@@ -44,7 +40,6 @@ func (p *MeteringPlanner) PlanStart(ctx context.Context, input *planner.PlanInpu
 		meter:          p.Meter,
 		agentID:        p.AgentID,
 		provider:       p.resolveProvider(),
-		modelName:      p.ModelName,
 		capturePrompts: p.CapturePrompts,
 	}
 	return p.Inner.PlanStart(ctx, input)
@@ -57,7 +52,6 @@ func (p *MeteringPlanner) PlanResume(ctx context.Context, input *planner.PlanRes
 		meter:          p.Meter,
 		agentID:        p.AgentID,
 		provider:       p.resolveProvider(),
-		modelName:      p.ModelName,
 		capturePrompts: p.CapturePrompts,
 	}
 	return p.Inner.PlanResume(ctx, input)
@@ -109,7 +103,6 @@ type meteringPlannerContext struct {
 	meter          *Meter
 	agentID        string
 	provider       string
-	modelName      string
 	capturePrompts bool
 }
 
@@ -118,17 +111,10 @@ func (m *meteringPlannerContext) ModelClient(id string) (model.Client, bool) {
 	if !ok {
 		return nil, false
 	}
-	// Use the configured model name if available, otherwise fall back to
-	// the runtime registry key. The meteringClient.resolveModel method
-	// will further check req.Model at call time.
-	modelID := id
-	if m.modelName != "" {
-		modelID = m.modelName
-	}
 	return &meteringClient{
 		inner:          client,
 		meter:          m.meter,
-		modelID:        modelID,
+		modelID:        id,
 		agentID:        m.agentID,
 		provider:       m.provider,
 		capturePrompts: m.capturePrompts,

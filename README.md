@@ -21,7 +21,7 @@ import (
 | Variable | Required | Description |
 |---|---|---|
 | `REVENIUM_API_KEY` | Yes | Revenium API key (must start with `hak_`) |
-| `REVENIUM_METERING_BASE_URL` | No | Revenium metering API base URL (default: `https://api.revenium.io`) |
+| `REVENIUM_METERING_BASE_URL` | No | Revenium metering API base URL (default: `https://api.revenium.ai`) |
 | `REVENIUM_BASE_URL` | No | Alias for `REVENIUM_METERING_BASE_URL` |
 | `REVENIUM_ENVIRONMENT` | No | Deployment environment (e.g., `production`, `staging`) |
 | `REVENIUM_SQUAD` | No | Override for the squad/service-group identifier |
@@ -168,7 +168,7 @@ No additional configuration is required — multi-agent trace correlation works 
 
 1. Programmatic options (`WithAPIKey`, `WithBaseURL`, etc.)
 2. Environment variables (`REVENIUM_API_KEY`, `REVENIUM_METERING_BASE_URL`, etc.)
-3. Defaults (`https://api.revenium.io`)
+3. Defaults (`https://api.revenium.ai`)
 
 ## Design
 
