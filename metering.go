@@ -154,22 +154,47 @@ func NewMeter(opts ...Option) (*Meter, error) {
 // SendAsync sends a metering payload asynchronously. It never blocks the caller.
 // The send uses a detached context so it is not canceled when the caller's
 // context ends (e.g., when the runtime moves to the next planning phase).
-func (m *Meter) SendAsync(_ context.Context, payload *MeteringPayload) {
+//
+// Field precedence (highest to lowest):
+//  1. Payload field already set explicitly
+//  2. MeteringContext from request context (per-request config)
+//  3. Config options (static config)
+func (m *Meter) SendAsync(ctx context.Context, payload *MeteringPayload) {
 	payload.MiddlewareSource = middlewareSource
 	if payload.Environment == "" {
 		payload.Environment = m.cfg.Environment
 	}
+
+	// Check per-request MeteringContext before falling back to static Config
+	mc := GetMeteringContext(ctx)
+
 	if payload.OrganizationName == "" {
-		payload.OrganizationName = m.cfg.OrganizationName
+		if mc != nil && mc.OrganizationName != "" {
+			payload.OrganizationName = mc.OrganizationName
+		} else {
+			payload.OrganizationName = m.cfg.OrganizationName
+		}
 	}
 	if payload.SubscriptionID == "" {
-		payload.SubscriptionID = m.cfg.SubscriptionID
+		if mc != nil && mc.SubscriptionID != "" {
+			payload.SubscriptionID = mc.SubscriptionID
+		} else {
+			payload.SubscriptionID = m.cfg.SubscriptionID
+		}
 	}
 	if payload.ProductName == "" {
-		payload.ProductName = m.cfg.ProductName
+		if mc != nil && mc.ProductName != "" {
+			payload.ProductName = mc.ProductName
+		} else {
+			payload.ProductName = m.cfg.ProductName
+		}
 	}
-	if payload.Subscriber == nil && m.cfg.Subscriber != nil {
-		payload.Subscriber = m.cfg.Subscriber
+	if payload.Subscriber == nil {
+		if mc != nil && mc.Subscriber != nil {
+			payload.Subscriber = mc.Subscriber
+		} else if m.cfg.Subscriber != nil {
+			payload.Subscriber = m.cfg.Subscriber
+		}
 	}
 
 	m.wg.Add(1)

@@ -164,11 +164,51 @@ This is handled automatically by `MeteringPlanner` and `MeteringSink`:
 
 No additional configuration is required — multi-agent trace correlation works out of the box when both agents use `MeteringPlanner` and share the same `Meter` instance.
 
+## Per-Request Configuration
+
+For multi-tenant applications where metering metadata varies per request, use `MeteringContext` to set organization, subscription, product, and subscriber information dynamically:
+
+```go
+func handleRequest(ctx context.Context, userID, subscriptionID string) {
+    // Set per-request metering metadata
+    ctx = revenium.ContextWithMetering(ctx,
+        revenium.WithSubscriberInfo(userID, "user@example.com"),
+        revenium.WithSubscription(subscriptionID),
+        revenium.WithProduct("Enterprise"),
+        revenium.WithOrganization("Acme Corp"),
+    )
+
+    // Pass ctx to agent - metering payloads will use these values
+    _, err := rt.Run(ctx, agentName, input)
+}
+```
+
+You can also set subscriber credentials:
+
+```go
+ctx = revenium.ContextWithMetering(ctx,
+    revenium.WithSubscriberInfo("user-123", "user@example.com"),
+    revenium.WithSubscriberCredentialInfo("API Key", "pk-abc123"),
+)
+```
+
+Or build a `MeteringContext` manually:
+
+```go
+mc := revenium.NewMeteringContext(
+    revenium.WithOrganization("Acme Corp"),
+    revenium.WithSubscription("sub-456"),
+)
+ctx = revenium.WithMeteringContext(ctx, mc)
+```
+
 ## Configuration Precedence
 
-1. Programmatic options (`WithAPIKey`, `WithBaseURL`, etc.)
-2. Environment variables (`REVENIUM_API_KEY`, `REVENIUM_METERING_BASE_URL`, etc.)
-3. Defaults (`https://api.revenium.ai`)
+1. Payload field already set explicitly
+2. `MeteringContext` from request context (per-request config)
+3. Programmatic options (`WithAPIKey`, `WithBaseURL`, etc.)
+4. Environment variables (`REVENIUM_API_KEY`, `REVENIUM_METERING_BASE_URL`, etc.)
+5. Defaults (`https://api.revenium.ai`)
 
 ## Design
 

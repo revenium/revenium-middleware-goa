@@ -27,6 +27,11 @@ type MeteringPlanner struct {
 	// If empty, defaults to "unknown".
 	Provider string
 
+	// ModelName is the actual model name to report in metering payloads
+	// (e.g., "gpt-4o", "claude-3-opus"). If empty, falls back to the
+	// registered model ID.
+	ModelName string
+
 	// CapturePrompts enables capturing system prompts, input messages, and
 	// output responses in metering payloads. Disabled by default since
 	// prompts may contain sensitive data.
@@ -40,6 +45,7 @@ func (p *MeteringPlanner) PlanStart(ctx context.Context, input *planner.PlanInpu
 		meter:          p.Meter,
 		agentID:        p.AgentID,
 		provider:       p.resolveProvider(),
+		modelName:      p.ModelName,
 		capturePrompts: p.CapturePrompts,
 	}
 	return p.Inner.PlanStart(ctx, input)
@@ -52,6 +58,7 @@ func (p *MeteringPlanner) PlanResume(ctx context.Context, input *planner.PlanRes
 		meter:          p.Meter,
 		agentID:        p.AgentID,
 		provider:       p.resolveProvider(),
+		modelName:      p.ModelName,
 		capturePrompts: p.CapturePrompts,
 	}
 	return p.Inner.PlanResume(ctx, input)
@@ -65,15 +72,24 @@ func (p *MeteringPlanner) resolveProvider() string {
 }
 
 func (p *MeteringPlanner) ensureTraceContext(ctx context.Context, rc run.Context) context.Context {
-	tc := GetTraceContext(ctx)
-	if tc != nil {
-		return ctx
-	}
+	existing := GetTraceContext(ctx)
 
-	tc = &TraceContext{
+	tc := &TraceContext{
 		TraceType:     "agent",
 		TransactionID: rc.RunID,
 		Squad:         ResolveSquad(p.Meter.cfg, p.AgentID),
+	}
+
+	// If a TraceContext already exists, inherit its TraceID (allows shared tracing)
+	if existing != nil && existing.TraceID != "" {
+		tc.TraceID = existing.TraceID
+		tc.TraceName = existing.TraceName
+		// For child runs, also set parent transaction
+		if rc.ParentRunID != "" {
+			tc.ParentTxnID = rc.ParentRunID
+		}
+		p.Meter.RegisterTrace(rc.RunID, tc.TraceID)
+		return WithTraceContext(ctx, tc)
 	}
 
 	if rc.ParentRunID == "" {
@@ -103,6 +119,7 @@ type meteringPlannerContext struct {
 	meter          *Meter
 	agentID        string
 	provider       string
+	modelName      string
 	capturePrompts bool
 }
 
@@ -111,10 +128,15 @@ func (m *meteringPlannerContext) ModelClient(id string) (model.Client, bool) {
 	if !ok {
 		return nil, false
 	}
+	// Use configured modelName if set, otherwise fall back to registered model ID
+	modelID := m.modelName
+	if modelID == "" {
+		modelID = id
+	}
 	return &meteringClient{
 		inner:          client,
 		meter:          m.meter,
-		modelID:        id,
+		modelID:        modelID,
 		agentID:        m.agentID,
 		provider:       m.provider,
 		capturePrompts: m.capturePrompts,

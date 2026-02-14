@@ -10,7 +10,7 @@ const middlewareName = "goa-ai-revenium"
 var (
 	middlewareVersion = "0.1.0"
 	middlewareSource  string
-	userAgent        string
+	userAgent         string
 )
 
 func init() {

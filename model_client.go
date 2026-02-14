@@ -32,8 +32,13 @@ func (c *meteringClient) Complete(ctx context.Context, req *model.Request) (*mod
 	}
 
 	// squad := ResolveSquad(c.meter.cfg, c.agentID)
+	// Use model from response usage if available, otherwise fall back to request/config
+	modelName := resp.Usage.Model
+	if modelName == "" {
+		modelName = c.resolveModel(req)
+	}
 	payload := &MeteringPayload{
-		Model:               resp.Usage.Model,
+		Model:               modelName,
 		InputTokenCount:     resp.Usage.InputTokens,
 		OutputTokenCount:    resp.Usage.OutputTokens,
 		TotalTokenCount:     resp.Usage.InputTokens + resp.Usage.OutputTokens,
@@ -143,8 +148,13 @@ func (s *meteringStreamer) Close() error {
 
 	if s.usage.InputTokens > 0 || s.usage.OutputTokens > 0 {
 		// squad := ResolveSquad(s.meter.cfg, s.agentID)
+		// Use model from usage if available, otherwise fall back to configured model ID
+		modelName := s.usage.Model
+		if modelName == "" {
+			modelName = s.modelID
+		}
 		payload := &MeteringPayload{
-			Model:               s.usage.Model,
+			Model:               modelName,
 			InputTokenCount:     s.usage.InputTokens,
 			OutputTokenCount:    s.usage.OutputTokens,
 			TotalTokenCount:     s.usage.InputTokens + s.usage.OutputTokens,
