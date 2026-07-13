@@ -52,6 +52,13 @@ func TestMeteringStreamerUsesCanonicalResponse(t *testing.T) {
 			Parts: []model.Part{
 				model.ThinkingPart{Text: "reasoning", Final: true},
 				model.TextPart{Text: "canonical answer"},
+				model.CitationsPart{
+					Text: "cited answer",
+					Citations: []model.Citation{{
+						Title:  "Manual",
+						Source: "manual-1",
+					}},
+				},
 			},
 		}},
 		Usage: model.TokenUsage{
@@ -83,6 +90,14 @@ func TestMeteringStreamerUsesCanonicalResponse(t *testing.T) {
 
 	if got := streamer.Response(); got != response {
 		t.Fatal("Response did not forward the provider response")
+	}
+	metadata := streamer.Metadata()
+	if metadata["usage"] != response.Usage {
+		t.Errorf("metadata usage = %#v, want %#v", metadata["usage"], response.Usage)
+	}
+	citations, ok := metadata["citations"].([]model.Citation)
+	if !ok || len(citations) != 1 || citations[0].Source != "manual-1" {
+		t.Errorf("metadata citations = %#v, want manual-1 citation", metadata["citations"])
 	}
 	if err := streamer.Close(); err != nil {
 		t.Fatalf("close stream: %v", err)

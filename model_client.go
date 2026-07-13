@@ -182,7 +182,30 @@ func (s *meteringStreamer) Close() error {
 }
 
 func (s *meteringStreamer) Metadata() map[string]any {
-	return s.inner.Metadata()
+	response := s.inner.Response()
+	if response == nil {
+		return nil
+	}
+	metadata := make(map[string]any)
+	if response.Usage != (model.TokenUsage{}) {
+		metadata["usage"] = response.Usage
+	}
+	var citations []model.Citation
+	for _, message := range response.Content {
+		for _, part := range message.Parts {
+			cited, ok := part.(model.CitationsPart)
+			if ok {
+				citations = append(citations, cited.Citations...)
+			}
+		}
+	}
+	if len(citations) > 0 {
+		metadata["citations"] = citations
+	}
+	if len(metadata) == 0 {
+		return nil
+	}
+	return metadata
 }
 
 // extractMessageText returns the concatenated text content of a message.
