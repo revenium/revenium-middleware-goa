@@ -57,7 +57,7 @@ func TestMeteringStreamerUsesCanonicalResponse(t *testing.T) {
 		Usage: model.TokenUsage{
 			InputTokens:      11,
 			OutputTokens:     7,
-			TotalTokens:      18,
+			TotalTokens:      23,
 			CacheReadTokens:  3,
 			CacheWriteTokens: 2,
 			Model:            "provider-model",
@@ -93,9 +93,9 @@ func TestMeteringStreamerUsesCanonicalResponse(t *testing.T) {
 	if payload.Model != "provider-model" {
 		t.Errorf("Model = %q, want provider-model", payload.Model)
 	}
-	if payload.InputTokenCount != 11 || payload.OutputTokenCount != 7 || payload.TotalTokenCount != 18 {
+	if payload.InputTokenCount != 11 || payload.OutputTokenCount != 7 || payload.TotalTokenCount != 23 {
 		t.Errorf(
-			"token counts = %d/%d/%d, want 11/7/18",
+			"token counts = %d/%d/%d, want 11/7/23",
 			payload.InputTokenCount,
 			payload.OutputTokenCount,
 			payload.TotalTokenCount,
