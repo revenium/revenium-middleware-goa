@@ -41,7 +41,7 @@ func (c *meteringClient) Complete(ctx context.Context, req *model.Request) (*mod
 		Model:               modelName,
 		InputTokenCount:     resp.Usage.InputTokens,
 		OutputTokenCount:    resp.Usage.OutputTokens,
-		TotalTokenCount:     resp.Usage.InputTokens + resp.Usage.OutputTokens,
+		TotalTokenCount:     resp.Usage.TotalTokens,
 		StopReason:          MapStopReason(resp.StopReason),
 		RequestTime:         start.UTC().Format(iso8601),
 		CompletionStartTime: start.UTC().Format(iso8601),
@@ -116,49 +116,35 @@ type meteringStreamer struct {
 	req            *model.Request
 	start          time.Time
 	ctx            context.Context
-	usage          model.TokenUsage
-	stopReason     string
-	responseText   strings.Builder
 }
 
 func (s *meteringStreamer) Recv() (model.Chunk, error) {
-	chunk, err := s.inner.Recv()
-	if chunk.UsageDelta != nil {
-		s.usage.InputTokens += chunk.UsageDelta.InputTokens
-		s.usage.OutputTokens += chunk.UsageDelta.OutputTokens
-		s.usage.TotalTokens += chunk.UsageDelta.TotalTokens
-		s.usage.CacheReadTokens += chunk.UsageDelta.CacheReadTokens
-		s.usage.CacheWriteTokens += chunk.UsageDelta.CacheWriteTokens
-		s.usage.Model = chunk.UsageDelta.Model
-		s.usage.ModelClass = chunk.UsageDelta.ModelClass
-	}
-	if chunk.StopReason != "" {
-		s.stopReason = chunk.StopReason
-	}
-	if s.capturePrompts && chunk.Message != nil {
-		s.responseText.WriteString(extractMessageText(chunk.Message))
-	}
-	return chunk, err
+	return s.inner.Recv()
+}
+
+func (s *meteringStreamer) Response() *model.Response {
+	return s.inner.Response()
 }
 
 func (s *meteringStreamer) Close() error {
+	response := s.inner.Response()
 	err := s.inner.Close()
 	end := time.Now()
 	elapsed := end.Sub(s.start)
 
-	if s.usage.InputTokens > 0 || s.usage.OutputTokens > 0 {
+	if response != nil && (response.Usage.InputTokens > 0 || response.Usage.OutputTokens > 0) {
 		// squad := ResolveSquad(s.meter.cfg, s.agentID)
 		// Use model from usage if available, otherwise fall back to configured model ID
-		modelName := s.usage.Model
+		modelName := response.Usage.Model
 		if modelName == "" {
 			modelName = s.modelID
 		}
 		payload := &MeteringPayload{
 			Model:               modelName,
-			InputTokenCount:     s.usage.InputTokens,
-			OutputTokenCount:    s.usage.OutputTokens,
-			TotalTokenCount:     s.usage.InputTokens + s.usage.OutputTokens,
-			StopReason:          MapStopReason(s.stopReason),
+			InputTokenCount:     response.Usage.InputTokens,
+			OutputTokenCount:    response.Usage.OutputTokens,
+			TotalTokenCount:     response.Usage.TotalTokens,
+			StopReason:          MapStopReason(response.StopReason),
 			RequestTime:         s.start.UTC().Format(iso8601),
 			CompletionStartTime: s.start.UTC().Format(iso8601),
 			ResponseTime:        end.UTC().Format(iso8601),
@@ -169,8 +155,8 @@ func (s *meteringStreamer) Close() error {
 			Agent:               s.agentID,
 			// SquadID:             squad,
 			// SquadName:           squad,
-			CacheReadTokenCount:     s.usage.CacheReadTokens,
-			CacheCreationTokenCount: s.usage.CacheWriteTokens,
+			CacheReadTokenCount:     response.Usage.CacheReadTokens,
+			CacheCreationTokenCount: response.Usage.CacheWriteTokens,
 		}
 
 		if tc := GetTraceContext(s.ctx); tc != nil {
@@ -186,8 +172,7 @@ func (s *meteringStreamer) Close() error {
 		}
 
 		if s.capturePrompts {
-			populatePromptFields(payload, s.req, nil)
-			payload.OutputResponse = s.responseText.String()
+			populatePromptFields(payload, s.req, response.Content)
 		}
 
 		s.meter.SendAsync(s.ctx, payload)
@@ -197,7 +182,30 @@ func (s *meteringStreamer) Close() error {
 }
 
 func (s *meteringStreamer) Metadata() map[string]any {
-	return s.inner.Metadata()
+	response := s.inner.Response()
+	if response == nil {
+		return nil
+	}
+	metadata := make(map[string]any)
+	if response.Usage != (model.TokenUsage{}) {
+		metadata["usage"] = response.Usage
+	}
+	var citations []model.Citation
+	for _, message := range response.Content {
+		for _, part := range message.Parts {
+			cited, ok := part.(model.CitationsPart)
+			if ok {
+				citations = append(citations, cited.Citations...)
+			}
+		}
+	}
+	if len(citations) > 0 {
+		metadata["citations"] = citations
+	}
+	if len(metadata) == 0 {
+		return nil
+	}
+	return metadata
 }
 
 // extractMessageText returns the concatenated text content of a message.
